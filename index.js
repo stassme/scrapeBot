@@ -1,7 +1,8 @@
 const puppeteer = require('puppeteer');
 const mongoose = require('mongoose');
-const Item = require('./models/Item'); 
+const Item = require('./item');
 require('dotenv').config();
+
 
 (async () => {
     const mongoUri = process.env.URL;
@@ -12,7 +13,7 @@ require('dotenv').config();
             useUnifiedTopology: true,
         });
         console.log('Connected');
-        
+
         const browser = await puppeteer.launch({ headless: false });
         const page = await browser.newPage();
         await page.goto('https://www.vinted.fi/catalog?search_text=nike%20air%20force%201&order=newest_first&price_to=35&currency=EUR&color_ids[]=12');
@@ -39,7 +40,16 @@ require('dotenv').config();
             return finalArr.slice(0, 10);
         });
 
-        await Item.insertMany(data);
+        for (const itemData of data) {
+            const existingItem = await Item.findOne({ link: itemData.link });
+            if (!existingItem) {
+                const item = new Item(itemData);
+                await item.save();
+                console.log(`Saved item ${itemData}`);
+            } else {
+                console.log(`Item already exists ${itemData.link}`);
+            }
+        }
 
         await browser.close();
     } catch (err) {
